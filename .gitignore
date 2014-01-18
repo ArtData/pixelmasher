@@ -1,0 +1,9 @@
+*.pyc
+*.tiff
+*.npy
+stats.txt
+listing.txt
+completed
+downloads
+failed
+
