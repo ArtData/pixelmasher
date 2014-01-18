@@ -1,9 +1,12 @@
 *.pyc
 *.tiff
+*.jpg
 *.npy
+
 stats.txt
 listing.txt
+
 completed
 downloads
 failed
-
+urls
