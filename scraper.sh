@@ -1,5 +1,7 @@
 #!/bin/sh
 
+mkdir -p urls
+
 while true; do
     # Disabling SSL and cross-site security is needed when using the built-in async downloader.
     # Disabling image loading speeds things up a lot, and we can still scrape imgrc URLs.
