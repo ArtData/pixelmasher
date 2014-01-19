@@ -11,9 +11,12 @@ failed_dir = 'failed'
 completed_dir = 'completed'
 output_file = 'sum.npy'
 
-# Process concurrently in small batches and checkpoint periodically
+# Process concurrently in small batches and checkpoint periodically.
+# Batches should be fairly large to amortize the cost of checkpointing
+# the sum buffer.
+
 num_cpus = multiprocessing.cpu_count()
-batch_size_per_cpu = 50
+batch_size_per_cpu = 400
 
 
 def newBuffer():
@@ -48,7 +51,7 @@ def prepareBatches():
         batch = batches[count % num_cpus]
         batch.append(f)
         count += 1
-        if len(batch) >= batch_size_per_cpu:
+        if count >= batch_size_per_cpu * num_cpus:
             break
 
     print "Starting batch of %d images on %d CPUs" % (count, num_cpus)
