@@ -73,7 +73,13 @@ def worker(batch):
         print filename
 
         try:
-            img = Image.open(os.path.join(input_dir, filename)).convert('RGB')
+            img = Image.open(os.path.join(input_dir, filename))
+
+            if img.mode != 'RGB':
+                # Convert incurs an extra copy, only do this if the image isn't already RGB.
+                img = img.convert('RGB')
+
+            # Copy to a numpy array
             f = numpy.fromstring(img.tostring(), numpy.uint8).reshape(img.size[1], img.size[0], 3)
 
         except (IOError, IndexError, SyntaxError), e:
