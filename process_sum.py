@@ -40,29 +40,27 @@ def scaleImageCenterMinMax(s):
         numpy.min(center.reshape(-1, 3), axis=0),
         numpy.max(center.reshape(-1, 3), axis=0))
 
-def scaleImageDctMinMax(s):
-    # Try to cut down JPEG compression artifacts by using a separate min/max
-    # for each channel and for each index within the 8x8 DCT block.
-    # Note: This doesn't actually work as expected, not using this for now.
+def removeDctBlockArtifacts(s):
+    # The raw sum buffer ends up with a very noticeable repeating 8x8 pattern due to
+    # systemic errors in the JPEG compression process. We try to cancel these out by
+    # removing those components in the frequency domain.
 
-    # Reshape the array to add extra axes for block index and position within block
-    dct_size = 8
-    dct_shape = (s.shape[0] / dct_size, dct_size, s.shape[1] / dct_size, dct_size, 3)
-    dcts = s.reshape(dct_shape)
+    print "Removing DCT block artifacts"
+    f = numpy.fft.rfft2(s, axes=(0,1))
 
-    # Collapse the block index axes via min/max functions
-    block_min = numpy.min(numpy.min(dcts, axis=0), axis=1)
-    block_max = numpy.max(numpy.max(dcts, axis=0), axis=1)
-    assert block_min.shape == (dct_size, dct_size, 3)
-    assert block_max.shape == (dct_size, dct_size, 3)
+    # FFT energy for random tiled 8x8 data appears in this grid pattern
+    for i in range(0, f.shape[0], s.shape[0]/8):
+        for j in range(0, f.shape[1], s.shape[1]/8):
 
-    # Tile these images back to the size of the whole image
-    tiled_min = numpy.tile(block_min, (s.shape[0] / dct_size, s.shape[1] / dct_size, 1))
-    tiled_max = numpy.tile(block_max, (s.shape[0] / dct_size, s.shape[1] / dct_size, 1))
+            # Zero all but DC (0,0) component
+            if i or j:
+                f[i, j] = 0
 
-    return (s - tiled_min).astype(float) / (tiled_max - tiled_min)
+    return numpy.fft.irfft2(f, axes=(0,1))
 
-def gaussianBlur(s, sigma):
+def gaussianBlur(s, sigma=None):
+    print "Blurring"
+    sigma = sigma or s.shape[1] * 0.05
     return numpy.dstack((
         scipy.ndimage.filters.gaussian_filter(s[:,:,0], sigma),
         scipy.ndimage.filters.gaussian_filter(s[:,:,1], sigma),
@@ -78,31 +76,42 @@ def saveTiff(filename, s):
     numpy.clip(s, 0, 0xFFFF)    
     tifffile.imsave(filename, s.astype(numpy.uint16))
 
+def scaleAndFilterImage(s, prefix):
+    # Most raw: just scale by the max
+    saveTiff(prefix + 'single-max.tiff', scaleImageSingleMax(s))
 
-print "Loading sum buffer"
-s = numpy.load('sum.npy')
+    # Next, show both min and max scaling
+    saveTiff(prefix + 'single-minmax.tiff', scaleImageSingleMinMax(s))
 
-print "Scaling values"
+    # Now scale each channel separately
+    scaled = scaleImageChannelMinMax(s)
+    saveTiff(prefix + 'channel-minmax.tiff', scaled)
 
-# Most raw: just scale by the max
-saveTiff('result-single-max.tiff', scaleImageSingleMax(s))
+    # Gaussian filter, to extract only the low-frequency color gradient background
+    lowpass = gaussianBlur(scaled)
+    saveTiff(prefix + 'lowpass.tiff', lowpass)
 
-# Next, show both min and max scaling
-saveTiff('result-single-minmax.tiff', scaleImageSingleMinMax(s))
+    # Subtract the blurred image, for a high-pass filter
+    highpass = scaled - lowpass
+    saveTiff(prefix + 'highpass.tiff', gammaCorrect(scaleImageCenterMinMax(highpass), 2.2))
 
-# Now scale each channel separately
-scaled = scaleImageChannelMinMax(s)
-saveTiff('result-channel-minmax.tiff', scaled)
+    # Emphasize differences by squaring the error
+    sq = highpass * highpass
+    saveTiff(prefix + 'highpass-sq.tiff', gammaCorrect(scaleImageCenterMinMax(sq), 1/2.2))
 
-# Gaussian filter, to extract only the low-frequency color gradient background
-print "Blurring"
-lowpass = gaussianBlur(scaled, int(s.shape[1] * 0.05))
-saveTiff('result-lowpass.tiff', lowpass)
 
-# Subtract the blurred image, for a high-pass filter
-highpass = scaled - lowpass
-saveTiff('result-highpass.tiff', gammaCorrect(scaleImageCenterMinMax(highpass), 2.2))
+def main():
+    print "Loading sum buffer"
+    s = numpy.load('sum.npy')
 
-# Emphasize differences by squaring the error
-sq = highpass * highpass
-saveTiff('result-highpass-sq.tiff', gammaCorrect(scaleImageCenterMinMax(sq), 1/2.2))
+    # First round of filtering
+    scaleAndFilterImage(s, 'result-')
+
+    # Do it all again after trying to remove DCT block artifacts
+    dcts = removeDctBlockArtifacts(s)
+    scaleAndFilterImage(dcts, 'result-dct-')
+
+
+if __name__ == '__main__':
+    main()
+
