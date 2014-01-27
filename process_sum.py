@@ -53,74 +53,20 @@ def removeDctBlockArtifacts(s):
     f = numpy.fft.rfft2(s, axes=(0,1))
     saveTiff('result-dct-spectrum-before.tiff', scaleImageChannelMinMax(numpy.log(numpy.abs(f) + 1)))
 
-    # Keep a queue of FFT hotspots to examine
-    queue = []
-
-    # Energy ratio threshold for an FFT hotspot
-    threshold = 0.5
-
     # FFT energy for random tiled 8x8 data appears in this grid pattern
-
-    for i in range(0, f.shape[0]+1, s.shape[0]/8):
-        for j in range(0, f.shape[1]+1, s.shape[1]/8):
-
-            # The last row is just off the edge of the image; nudge it back in.
-            i = min(i, f.shape[0] - 1)
-            j = min(j, f.shape[1] - 1)
-
-            # Don't zero the DC component
+    for i in range(0, f.shape[0], s.shape[0]/8):
+        for j in range(0, f.shape[1], s.shape[1]/8):
             if i == 0 and j == 0:
+                # Skip the DC component
                 continue
-
-            # The energy from the DCT errors spreads outward from this point a little, in a
-            # star-like pattern. Do a flood-fill starting from this point and moving outward.
-            queue.append((i, j))
-
-    # Erode hotspots until the queue is empty, using a flood-fill algorithm.
-
-    memo = {}
-
-    while queue:
-        i, j = point = queue.pop()
-        memo[point] = True
-
-        # Zero this point
-        x = numpy.copy(f[i, j])
-        f[i, j] = 0
-
-        # Don't bother examining neigbors for points on the DC axes
-        if i == 0 or j == 0:
-            continue
-
-        # Examine neighbors
-        for i, j in ( (i-1, j),
-                      (i+1, j),
-                      (i, j-1),
-                      (i, j+1) ):
-            point = i, j
-
-            if point in memo:
-                # Already seen
-                continue
-
-            if i < 0 or i >= f.shape[0] or j < 0 or j >= f.shape[1]:
-                # Out of range
-                continue
-
-            # How different is this neighbor?
-            if vRatio(f[i, j], x) > threshold:
-                # Different enough we can stop
-                continue
-
-            # Remember to visit this neighbor
-            queue.append(point)
+            f[i, j] = 0
 
     saveTiff('result-dct-spectrum-after.tiff', scaleImageChannelMinMax(numpy.log(numpy.abs(f) + 1)))
     return numpy.fft.irfft2(f, axes=(0,1))
 
 def gaussianBlur(s, sigma=None):
     print "Blurring"
-    sigma = sigma or s.shape[1] * 0.05
+    sigma = sigma or s.shape[1] * 0.03
     return numpy.dstack((
         scipy.ndimage.filters.gaussian_filter(s[:,:,0], sigma),
         scipy.ndimage.filters.gaussian_filter(s[:,:,1], sigma),
@@ -146,7 +92,7 @@ def scaleAndFilterImage(s, prefix):
     # Now scale each channel separately
     scaled = scaleImageChannelMinMax(s)
     saveTiff(prefix + 'channel-minmax.tiff', scaled)
-
+   
     # Gaussian filter, to extract only the low-frequency color gradient background
     lowpass = gaussianBlur(scaled)
     saveTiff(prefix + 'lowpass.tiff', lowpass)
