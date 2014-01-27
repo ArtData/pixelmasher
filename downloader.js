@@ -16,6 +16,19 @@ var queue = require('queue-async');
 // Highly concurrent!
 var q = queue(32);
 
+var watchdog = null;
+
+function resetWatchdog() {
+    // If we stop finishing anything new, end the process
+    if (watchdog) {
+        clearTimeout(watchdog);
+    }
+    watchdog = setTimeout(function() {
+        console.log('Watchdog exit.');
+        process.exit(0);
+    }, 10000);
+}
+
 //+ Jonas Raoni Soares Silva
 //@ http://jsfromhell.com/array/shuffle [v1.0]
 function shuffle(o){ //v1.0
@@ -52,10 +65,12 @@ function enqueue_download(filename, url) {
                 fs.writeFileSync('downloads/' + filename, res.body);
                 fs.unlinkSync('urls/' + filename);
                 console.log('Complete ' + url);
+                resetWatchdog();
             }
             callback();
         });
     })
 }
 
+resetWatchdog();
 look_for_work();
