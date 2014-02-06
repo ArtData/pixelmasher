@@ -26,7 +26,7 @@ function resetWatchdog() {
     watchdog = setTimeout(function() {
         console.log('Watchdog exit.');
         process.exit(0);
-    }, 10000);
+    }, 30000);
 }
 
 //+ Jonas Raoni Soares Silva
