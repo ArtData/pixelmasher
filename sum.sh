@@ -6,5 +6,5 @@ mkdir -p failed
 
 while true; do
     python sum_images.py
-    sleep 180
+    sleep 2400
 done
