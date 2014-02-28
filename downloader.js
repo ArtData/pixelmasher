@@ -61,6 +61,7 @@ function enqueue_download(filename, url) {
         httpreq.get(url, {binary: true}, function(error, res) {
             if (error) {
                 console.log('Error fetching ' + url + ': ' + error);
+                fs.renameSync('urls/' + filename, 'failed/' + filename);
             } else {
                 fs.writeFileSync('downloads/' + filename, res.body);
                 fs.unlinkSync('urls/' + filename);
