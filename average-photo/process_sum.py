@@ -113,10 +113,6 @@ def main():
     # First round of filtering
     scaleAndFilterImage(s, 'result-')
 
-    # Do it all again after trying to remove DCT block artifacts
-    dcts = removeDctBlockArtifacts(s)
-    scaleAndFilterImage(dcts, 'result-dct-')
-
 
 if __name__ == '__main__':
     main()
