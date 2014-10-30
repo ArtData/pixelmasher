@@ -1,6 +1,7 @@
-import json, urllib2
+#!/usr/bin/env python
+import json, urllib2, sys
 
-l = json.load(open('download.json'))
+l = json.load(open(sys.argv[1]))
 
 for i in l:
     im = i['image']
