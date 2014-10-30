@@ -29,10 +29,10 @@ def scaleImageChannelMinMax(s):
 
 def scaleImageCenterMinMax(s):
     # Like scaleImageChannelMinMax(), but we only look at the min/max values within
-    # the middle 2/3 of the image, ignoring the edges. This allows the edges to oversaturate,
+    # the middle 1/5 of the image, ignoring the edges. This allows the edges to oversaturate,
     # but it lets us see much more detail in the center.
 
-    dim = (s.shape[0] * 2//3, s.shape[1] * 2//3)
+    dim = (s.shape[0]//5, s.shape[1]//5)
     margin = ((s.shape[0] - dim[0]) // 2, (s.shape[1] - dim[1]) // 2)
     center = s[ margin[0]:margin[0]+dim[0], margin[1]:margin[1]+dim[1], : ]
 
