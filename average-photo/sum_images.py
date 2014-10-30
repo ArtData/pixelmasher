@@ -18,9 +18,11 @@ output_file = 'sum.npy'
 num_cpus = multiprocessing.cpu_count()
 batch_size_per_cpu = 400
 
+square_size = 1024
+
 
 def newBuffer():
-    return numpy.zeros((2448, 3264, 3), dtype=numpy.uint64)
+    return numpy.zeros((square_size, square_size, 3), dtype=numpy.uint64)
 
 def loadBuffer():
     # Load old buffer or create a zeroed buffer
@@ -46,7 +48,7 @@ def prepareBatches():
     count = 0
 
     for f in os.listdir(input_dir):
-        if not f.endswith('.jpeg'):
+        if f.startswith('.'):
             continue
         batch = batches[count % num_cpus]
         batch.append(f)
@@ -82,8 +84,17 @@ def worker(batch):
                 # Convert incurs an extra copy, only do this if the image isn't already RGB.
                 img = img.convert('RGB')
 
+            # Resize so it fits in the sum buffer
+            ratio = float(square_size) / max(img.size[0], img.size[1])
+            scaled_width = int(img.size[0] * ratio)
+            scaled_height = int(img.size[1] * ratio)
+            x_offset = int((square_size - scaled_width) / 2)
+            y_offset = int((square_size - scaled_height) / 2)
+
+            img = img.resize((scaled_width, scaled_height), Image.ANTIALIAS)
+
             # Copy to a numpy array
-            f = numpy.fromstring(img.tostring(), numpy.uint8).reshape(img.size[1], img.size[0], 3)
+            f = numpy.fromstring(img.tostring(), numpy.uint8).reshape(scaled_height, scaled_width, 3)
 
         except (IOError, IndexError, SyntaxError), e:
             # Failed to read this image, immediately move it out of the way
@@ -91,13 +102,7 @@ def worker(batch):
             moveFailedFile(filename)
             continue
 
-        if f.shape != buf.shape:
-            print "  wrong size"
-            moveFailedFile(filename)
-            continue
-
-        # Add it to our sum buffer, and remember to move it after we write out the results
-        buf += lut[f]
+        buf[y_offset:(y_offset+scaled_height), x_offset:(x_offset+scaled_width), :] += lut[f]
         file_list.append(filename)
 
     return buf, file_list
